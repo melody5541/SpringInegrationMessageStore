@@ -1,6 +1,6 @@
 Spring-Integration-MongoDB
 ==========================
 
-Spring Integration and MongoDB message store samples
+Spring Integration and Mysql/Oracel message store samples
 
-Pre-requisites: a MongoDB instance running locally, on the default port.
+1.in this sample i just implements a message store with jdbc to send and poller message from database.
