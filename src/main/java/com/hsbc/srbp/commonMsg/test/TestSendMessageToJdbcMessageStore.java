@@ -4,30 +4,24 @@ import java.util.HashMap;
 
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.core.serializer.Serializer;
 import org.springframework.integration.MessageChannel;
 import org.springframework.integration.channel.QueueChannel;
-import org.springframework.integration.message.GenericMessage;
 import org.springframework.integration.support.MessageBuilder;
 
-import com.hsbc.srbp.commonMsg.domain.CommonMessage;
-
-public class TestJdbcMessageStore {
+public class TestSendMessageToJdbcMessageStore {
 
 
-	private TestJdbcMessageStore() {
+	private TestSendMessageToJdbcMessageStore() {
 	}
 
 	public static void main(final String... args) {
 
-		final AbstractApplicationContext context = new ClassPathXmlApplicationContext("jdbcMessageStoreApplicationContext.xml");
+		final AbstractApplicationContext context = new ClassPathXmlApplicationContext("jdbcMessageStoreApplicationContext-outbound.xml");
 		MessageChannel channel = context.getBean("inputChannel",QueueChannel.class);
-		CommonMessage message = new CommonMessage();
 		HashMap<String, Object> map = new HashMap<>();
 		for(int i=1;i<11;i++){
 			map.put("message_content", "message #"+i);
-			message.setMap(map);
-			channel.send(MessageBuilder.withPayload(message).setHeader("message_name", "message!!! #"+i).build());
+			channel.send(MessageBuilder.withPayload(map).setHeader("message_name", "It`s message name #"+i).build());
 		}
 		
 

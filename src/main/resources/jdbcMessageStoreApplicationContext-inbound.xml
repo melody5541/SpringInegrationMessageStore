@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:jdbc="http://www.springframework.org/schema/jdbc" xmlns:int-jdbc="http://www.springframework.org/schema/integration/jdbc"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:task="http://www.springframework.org/schema/task" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd
+			http://www.springframework.org/schema/integration
+			http://www.springframework.org/schema/integration/spring-integration.xsd
+			http://www.springframework.org/schema/integration/jdbc
+			http://www.springframework.org/schema/integration/jdbc/spring-integration-jdbc.xsd
+			http://www.springframework.org/schema/jdbc
+			http://www.springframework.org/schema/jdbc/spring-jdbc.xsd
+			http://www.springframework.org/schema/context
+			http://www.springframework.org/schema/context/spring-context.xsd
+			http://www.springframework.org/schema/tx
+			http://www.springframework.org/schema/tx/spring-tx.xsd
+			http://www.springframework.org/schema/task
+			http://www.springframework.org/schema/task/spring-task.xsd">
+
+
+	<import resource="classpath:jdbc-mysql.xml" />
+
+	<tx:annotation-driven />
+	
+	<!-- support annotation drive for spring-task Example @Async annotation will use the executor define in here -->
+	<task:annotation-driven executor="processTaskExecutor" />
+	
+	<!-- supply some query provider to prepare sql for message operation-->
+	<!-- if some database do not support MVCC need use  ransaction-synchronization-factory to remove cached ids-->
+	<!-- <int:transaction-synchronization-factory
+		id="syncFactory">
+		<int:after-commit expression="@store.removeFromIdCache(headers.id.toString())" />
+		<int:after-rollback expression="@store.removeFromIdCache(headers.id.toString())" />
+	</int:transaction-synchronization-factory> -->
+
+	<!-- this part is for batch controller to send message and store in database -->
+	<bean id="queryProvider"
+		class="org.springframework.integration.jdbc.store.channel.MySqlChannelMessageStoreQueryProvider" />
+		
+	<bean id="store"
+		class="org.springframework.integration.jdbc.store.JdbcChannelMessageStore">
+		<property name="dataSource" ref="dataSource" />
+		<property name="channelMessageStoreQueryProvider" ref="queryProvider" />
+		<!-- The message data for a persistent channel is keyed in the store on the channel name, 
+		so if the channel names are not globally unique then there is the danger of channels picking up data that was not intended for them.
+		 To avoid this, the message store region can be used to keep data separate for different physical channels that happen to have the same logical name. -->
+		<property name="region" value="BATCH_CONTROLLER_REQUEST" />
+		<!-- To achieve better JDBC queue throughput, and avoid issues when different threads may poll the same Message from the queue, 
+		it is important to set the usingIdCache property of JdbcChannelMessageStore to true when using databases that do not support MVCC: -->
+		<property name="usingIdCache" value="false" />
+	</bean>
+
+	<!-- ************************this part is for batch worker to listener message and process ***************************-->
+	<!-- pollerTaskExecutor is for jdbc message store could multiple thread to poller message from database -->
+	<task:executor id="pollerTaskExecutor" pool-size="10" queue-capacity="10"
+		rejection-policy="ABORT" />
+		
+	<!-- processTaskExecutor mainly target is for separate the transaction for poller consumer and messageHandler from MessageProcessor
+	because of poller consumer(implements by SI already) and messageHandler stay in the same thread so the transaction binding together
+	when thread poor is full or messagehandler throws any exception,SI will fall back the transaction,but the messageProcessor transaction
+	is already separate from the messagehandler,if messageProcessor throws any exception it will not effect the message delete from message store-->
+	<task:executor id="processTaskExecutor" pool-size="10"
+		queue-capacity="10" rejection-policy="ABORT" />
+
+	<!-- because  inputChannel use message store so when IoC container start ,SI will find the message store by groupId 
+	the group id is which represents the channel identifier to UUID in database.-->
+	<int:channel id="inputChannel">
+		<int:queue message-store="store"/>
+	</int:channel>
+
+	<int:service-activator input-channel="inputChannel"  ref="messageHandler" method="hand">
+		<int:poller fixed-delay="1000" receive-timeout="500"
+	        max-messages-per-poll="1" task-executor="pollerTaskExecutor">
+	        <int:transactional propagation="REQUIRED"
+	        isolation="READ_COMMITTED" transaction-manager="pollerTransactionManager"/>
+	    </int:poller>
+	</int:service-activator>
+
+	<bean id="messageHandler" class="com.hsbc.srbp.commonMsg.handler.MessageHandler">
+		<property name="messageProcessorService" ref="messageProcessorServiceImpl" />
+	</bean>
+
+	<bean id="messageProcessorServiceImpl"
+		class="com.hsbc.srbp.commonMsg.service.impl.MessageProcessorServiceImpl"/>
+
+</beans>

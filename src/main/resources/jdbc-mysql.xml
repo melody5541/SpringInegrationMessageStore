@@ -13,11 +13,11 @@
 			http://www.springframework.org/schema/jdbc/spring-jdbc.xsd">
 
 	<!-- initilization datasource -->
-	<jdbc:initialize-database data-source="dataSource"
+	<!-- <jdbc:initialize-database data-source="dataSource"
 		enabled="true" ignore-failures="DROPS">
 		<jdbc:script location="classpath:schema-drop-mysql.sql" />
 		<jdbc:script location="classpath:schema-mysql.sql" />
-	</jdbc:initialize-database> 
+	</jdbc:initialize-database>  -->
 
 	<bean id="dataSource"
 		class="org.springframework.jdbc.datasource.DriverManagerDataSource">

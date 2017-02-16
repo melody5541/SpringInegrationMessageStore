@@ -1,8 +1,8 @@
 package com.hsbc.srbp.commonMsg.service;
 
-import com.hsbc.srbp.commonMsg.domain.CommonMessage;
+import org.springframework.integration.Message;
 
 public interface MessageProcessorService {
 	
-	public void process(CommonMessage msg) throws Exception;
+	public void process(Message<?> message) throws Exception;
 }

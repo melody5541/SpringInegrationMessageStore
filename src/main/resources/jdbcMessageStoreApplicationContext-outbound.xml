@@ -23,26 +23,17 @@
 
 	<import resource="classpath:jdbc-mysql.xml" />
 
-	<tx:annotation-driven />
-
-	<task:annotation-driven executor="processTaskExecutor" />
-
-	<bean id="queryProvider"
-		class="org.springframework.integration.jdbc.store.channel.MySqlChannelMessageStoreQueryProvider" />
-
-	<int:transaction-synchronization-factory
+	<!-- if some database do not support MVCC need use  ransaction-synchronization-factory to remove cached ids-->
+	<!-- <int:transaction-synchronization-factory
 		id="syncFactory">
 		<int:after-commit expression="@store.removeFromIdCache(headers.id.toString())" />
 		<int:after-rollback expression="@store.removeFromIdCache(headers.id.toString())" />
-	</int:transaction-synchronization-factory>
+	</int:transaction-synchronization-factory> -->
 
-	<task:executor id="pool" pool-size="10" queue-capacity="10"
-		rejection-policy="ABORT" />
-
-	<task:executor id="processTaskExecutor" pool-size="10"
-		queue-capacity="10" rejection-policy="ABORT" />
-
-
+	<!-- this part is for batch controller to send message and store in database -->
+	<bean id="queryProvider"
+		class="org.springframework.integration.jdbc.store.channel.MySqlChannelMessageStoreQueryProvider" />
+		
 	<bean id="store"
 		class="org.springframework.integration.jdbc.store.JdbcChannelMessageStore">
 		<property name="dataSource" ref="dataSource" />
@@ -54,24 +45,5 @@
 	<int:channel id="inputChannel">
 		<int:queue message-store="store" />
 	</int:channel>
-
-	<int:channel id="outputChannel"></int:channel>
-
-	<int:bridge input-channel="inputChannel" output-channel="outputChannel">
-	    <int:poller fixed-delay="1000" receive-timeout="500"
-	        max-messages-per-poll="1" task-executor="pool">
-	        <int:transactional propagation="REQUIRED" synchronization-factory="syncFactory"
-	        isolation="READ_COMMITTED" transaction-manager="pollerTransactionManager" />
-	    </int:poller>
-	</int:bridge>
 	
-	<int:service-activator input-channel="outputChannel"  ref="messageHandler" method="hand"></int:service-activator>
-
-	<bean id="messageHandler" class="com.hsbc.srbp.commonMsg.handler.MessageHandler">
-		<property name="messageProcessorService" ref="messageProcessorServiceImpl" />
-	</bean>
-
-	<bean id="messageProcessorServiceImpl"
-		class="com.hsbc.srbp.commonMsg.service.impl.MessageProcessorServiceImpl"></bean>
-
 </beans>
