@@ -1,4 +1,4 @@
-Spring-Integration-MongoDB
+Spring-Integration-MessageStore
 ==========================
 
 Spring Integration and Mysql/Oracel message store samples
